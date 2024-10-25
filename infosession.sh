@@ -18,14 +18,19 @@
 # Historial de revisiones:
 #      22/10/2024 - Primera version (creacion) del script
 #      22/10/2024 - Adicion de opciones: -u, -z, -h
+#      23/10/2024 - Adicion de CheckExternalTools
 #      23/10/2024 - Primera aproximacion a multiples usuarios
-#      25/10/2024
+#      25/10/2024 - Adicion de multiples usuarios y opcion -d
+#      25/10/2024 - Adicion de opcion -t
 
 # Funciones
+
+# Obtiene la informacion del comando ps
 Infosession () {
   ps -e -o sid,pgid,pid,user,tty,%mem,cmd --no-headers | tr -s " " 
 }                                                   
 
+# Chequea la existencia de awk y lsof
 CheckExternalTools() {
   awk_sign=$(which awk)
   lsof_sign=$(which lsof)
@@ -39,8 +44,6 @@ CheckExternalTools() {
   fi
 }
 
-
-# Chequeo de paquetes instalados
 CheckExternalTools
 
 # Inicialización de variables
@@ -54,6 +57,7 @@ USR_INFO=""
 TOTAL_INFO=""
 DIR=""
 TEMP_PIDS=""
+TERMINAL=0
 
 # Procesamiento argumentos
 while [ -n "$1" ]; do
@@ -64,25 +68,29 @@ while [ -n "$1" ]; do
     -z ) 
         ZERO=1
         ;;
-    -u )
+# Cambio al argumento. Mientras sigan habiendo usuarios, añadelos a USR. Si no hay ninguno, error
+    -u ) 
         shift
         while [ -n "$1" ] && [[ "$1" != -* ]]; do
           USR+=("$1")  
           shift
         done        
         if [ ${#USR[@]} -eq 0 ]; then
-          echo "Error: -u requiere al menos un nombre de usuario"
-          exit 1
+          ERROR=1
         fi
         continue
         ;;
     -d ) 
+# Cambio al argumento. Si no hay directorio especificado, o no existe, entonces error
         shift
         DIR="$1"
         if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
           ERROR=1
           INVALID_OPTION="-d"
         fi
+        ;;
+    -t )
+        TERMINAL=1
         ;;
     * )
         ERROR=1
@@ -105,23 +113,42 @@ if [ $ERROR -eq 1 ]; then
   exit 1
 fi
 
+# Si -z, mostrar procesos con sgid 0. Si no, mostrar los que no tienen sgid 0
 if [ $ZERO -eq 1 ]; then 
   INFORMATION=$(echo "$INFORMATION")
 else 
   INFORMATION=$(echo "$INFORMATION" | awk '$1 != 0')
 fi
 
+# Opcion -u: Si el tamaño de arrays de usuarios es mayor a 0, entonces
 if [ ${#USR[@]} -gt 0 ]; then
+# Para cada usuario en el array
   for i in "${USR[@]}"; do
-    USR_INFO=$(echo "$INFORMATION" |awk -v user="$i" '$4 == user')
+# Si el usuario es igual al user del ps, guardar sus procesos en USR_INFO
+    USR_INFO=$(echo "$INFORMATION" | awk -v user="$i" '$4 == user')
+# Guardar para cada usuario con un salto de linea
     TOTAL_INFO+=$USR_INFO'\n'
   done
+# Una vez terminado el bucle, guardar en INFORMATION
   INFORMATION="$TOTAL_INFO"
 fi
 
+
+# Opcion -d: 
 if [ -n "$DIR" ]; then
+# Guardar los pids de lsof +d en el directorio especificado en TEMP_PIDS
   TEMP_PIDS=$(lsof +d "$DIR" | awk '{print $2}')
+# Mostrar solo aquellos que se corresponden con dichos pids
   INFORMATION=$(echo "$INFORMATION" | grep "$TEMP_PIDS")
 fi
 
+
+# Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde la tty es distinta de 0
+if [ $TERMINAL -eq 0 ]; then
+  INFORMATION=$(echo "$INFORMATION")
+else 
+  INFORMATION=$(echo "$INFORMATION" | awk '$5 != 0')
+fi
+
+# Mostrar el resultado
 echo "$INFORMATION" 

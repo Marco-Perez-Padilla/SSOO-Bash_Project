@@ -17,25 +17,46 @@
 
 # Historial de revisiones:
 #      22/10/2024 - Primera version (creacion) del script
-
+#      22/10/2024 - Adicion de opciones: -u, -z, -h
+#      23/10/2024 - Primera aproximacion a multiples usuarios
+#      25/10/2024
 
 # Funciones
-infosession () {
+Infosession () {
   ps -e -o sid,pgid,pid,user,tty,%mem,cmd --no-headers | tr -s " " 
-}                                                   #awk '$1 != 0'
+}                                                   
 
+CheckExternalTools() {
+  awk_sign=$(which awk)
+  lsof_sign=$(which lsof)
+  if [ -z "$awk_sign" ]; then
+    echo "Warning: awk not installed."
+    exit 0
+  fi
+  if [ -z "$lsof_sign" ]; then
+    echo "Warning: lsof not installed."
+    exit 0
+  fi
+}
+
+
+# Chequeo de paquetes instalados
+CheckExternalTools
 
 # Inicialización de variables
-INFORMATION=$(infosession)
+INFORMATION=$(Infosession)
 HELP=0
 ZERO=0
-USR=""
+USR=()
 ERROR=0
 INVALID_OPTION=0
+USR_INFO=""
+TOTAL_INFO=""
+DIR=""
+TEMP_PIDS=""
 
 # Procesamiento argumentos
 while [ -n "$1" ]; do
-
   case "$1" in
     -h )
         HELP=1
@@ -45,10 +66,22 @@ while [ -n "$1" ]; do
         ;;
     -u )
         shift
-        USR="$1"
-        if [ -z "$USR" ]; then
+        while [ -n "$1" ] && [[ "$1" != -* ]]; do
+          USR+=("$1")  
+          shift
+        done        
+        if [ ${#USR[@]} -eq 0 ]; then
+          echo "Error: -u requiere al menos un nombre de usuario"
+          exit 1
+        fi
+        continue
+        ;;
+    -d ) 
+        shift
+        DIR="$1"
+        if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
           ERROR=1
-          INVALID_OPTION="-u"
+          INVALID_OPTION="-d"
         fi
         ;;
     * )
@@ -78,19 +111,17 @@ else
   INFORMATION=$(echo "$INFORMATION" | awk '$1 != 0')
 fi
 
-if [ -n "$USR" ]; then
-  INFORMATION=$(echo "$INFORMATION" |awk -v user="$USR" '$4 == user')
+if [ ${#USR[@]} -gt 0 ]; then
+  for i in "${USR[@]}"; do
+    USR_INFO=$(echo "$INFORMATION" |awk -v user="$i" '$4 == user')
+    TOTAL_INFO+=$USR_INFO'\n'
+  done
+  INFORMATION="$TOTAL_INFO"
 fi
 
-
-
-#Se está sobreescribiendo INFORMATION. Uso de variables auxiliares?
+if [ -n "$DIR" ]; then
+  TEMP_PIDS=$(lsof +d "$DIR" | awk '{print $2}')
+  INFORMATION=$(echo "$INFORMATION" | grep "$TEMP_PIDS")
+fi
 
 echo "$INFORMATION" 
-                    #Hacer opciones separadas y luego una opcion juntas?
-                    #Al ejecutar, se añaden:
-                       #105869 106281 106281 usuario pts/0 0.0 /bin/bash ./infosession.sh -u root
-                       #105869 106281 106282 usuario pts/0 0.0 /bin/bash ./infosession.sh -u root
-                    #Por que no se filtran con -u root ?
-                    #Si hago $USR me muestra todos los de usuario y: 105593 105593 105593 root ? 0.0 sshd: usuario [priv], lo mismo con "$USR", usuario, "usuario"
-                    #Con sudo se muestran tanto root como usuario

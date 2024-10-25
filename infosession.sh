@@ -22,8 +22,10 @@
 #      23/10/2024 - Primera aproximacion a multiples usuarios
 #      25/10/2024 - Adicion de multiples usuarios y opcion -d
 #      25/10/2024 - Adicion de opcion -t
+#      25/10/2024 - Adicion de comentarios en el codigo, y creacion del mensaje de ayuda
 
-# Funciones
+
+# Funciones:
 
 # Obtiene la informacion del comando ps
 Infosession () {
@@ -46,7 +48,7 @@ CheckExternalTools() {
 
 CheckExternalTools
 
-# Inicialización de variables
+# Inicialización de variables:
 INFORMATION=$(Infosession)
 HELP=0
 ZERO=0
@@ -59,7 +61,7 @@ DIR=""
 TEMP_PIDS=""
 TERMINAL=0
 
-# Procesamiento argumentos
+# Procesamiento argumentos:
 while [ -n "$1" ]; do
   case "$1" in
     -h )
@@ -101,12 +103,25 @@ while [ -n "$1" ]; do
 done
 
 
-# Evaluacion de argumentos
+# Evaluacion de argumentos:
+
+# Ayuda
 if [ $HELP -eq 1 ]; then
-  echo "Ayuda..."
+  echo "Usage: ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
+  echo "Shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
+  echo
+  echo "Any of the following options can be combined to get different results:"
+  echo
+  echo "-h: Displays this help to the user"
+  echo "-z: Shows the processes with sgid's equal to 0"
+  echo "-u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
+  echo "-d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
+  echo "-t: Shows those processes that has a terminal associated"
   exit 0
 fi
 
+
+# Mensaje de error
 if [ $ERROR -eq 1 ]; then 
   echo "$0: invalid option -- '$INVALID_OPTION'"
   echo "Try $0 -h for more information."

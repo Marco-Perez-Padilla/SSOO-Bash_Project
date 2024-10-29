@@ -23,7 +23,7 @@
 #      25/10/2024 - Adicion de multiples usuarios y opcion -d
 #      25/10/2024 - Adicion de opcion -t
 #      25/10/2024 - Adicion de comentarios en el codigo, y creacion del mensaje de ayuda
-
+#      29/10/2024 - Mejora de la opcion -t
 
 # Funciones:
 
@@ -38,11 +38,11 @@ CheckExternalTools() {
   lsof_sign=$(which lsof)
   if [ -z "$awk_sign" ]; then
     echo "Warning: awk not installed."
-    exit 0
+    exit 1
   fi
   if [ -z "$lsof_sign" ]; then
     echo "Warning: lsof not installed."
-    exit 0
+    exit 1
   fi
 }
 
@@ -162,8 +162,9 @@ fi
 if [ $TERMINAL -eq 0 ]; then
   INFORMATION=$(echo "$INFORMATION")
 else 
-  INFORMATION=$(echo "$INFORMATION" | awk '$5 != 0')
+  INFORMATION=$(echo "$INFORMATION" | awk '$5 != "0" && $5 != "?"')
 fi
 
 # Mostrar el resultado
+echo "SID PGID PID USER TTY %MEM CMD"
 echo "$INFORMATION" 

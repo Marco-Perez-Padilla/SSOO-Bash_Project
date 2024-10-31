@@ -24,6 +24,7 @@
 #      25/10/2024 - Adicion de opcion -t
 #      25/10/2024 - Adicion de comentarios en el codigo, y creacion del mensaje de ayuda
 #      29/10/2024 - Mejora de la opcion -t
+#      31/10/2024 - Modificacion: Adicion de la opcion -w
 
 # Funciones:
 
@@ -60,6 +61,7 @@ TOTAL_INFO=""
 DIR=""
 TEMP_PIDS=""
 TERMINAL=0
+MIN_PROCESS=0
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
@@ -93,6 +95,9 @@ while [ -n "$1" ]; do
         ;;
     -t )
         TERMINAL=1
+        ;;
+    -w )
+        MIN_PROCESS=1 
         ;;
     * )
         ERROR=1
@@ -157,6 +162,14 @@ if [ -n "$DIR" ]; then
   INFORMATION=$(echo "$INFORMATION" | grep "$TEMP_PIDS")
 fi
 
+
+# Opcion -w:
+if [ $MIN_PROCESS -eq 1 ]; then
+  MIN_PROCESS=$(echo "$INFORMATION" | wc -l)
+  if [ $MIN_PROCESS -lt 6 ]; then
+    echo "Warning: The result table has less than 5 processes"
+  fi
+fi
 
 # Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde la tty es distinta de 0
 if [ $TERMINAL -eq 0 ]; then

@@ -25,6 +25,8 @@
 #      25/10/2024 - Adicion de comentarios en el codigo, y creacion del mensaje de ayuda
 #      29/10/2024 - Mejora de la opcion -t
 #      31/10/2024 - Modificacion: Adicion de la opcion -w
+#      31/10/2024 - Eliminación de la opcion -w
+#      31/10/2024 - Adición de opcion -e
 
 # Funciones:
 
@@ -61,7 +63,7 @@ TOTAL_INFO=""
 DIR=""
 TEMP_PIDS=""
 TERMINAL=0
-MIN_PROCESS=0
+SESSION_TABLE=0
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
@@ -96,8 +98,8 @@ while [ -n "$1" ]; do
     -t )
         TERMINAL=1
         ;;
-    -w )
-        MIN_PROCESS=1 
+    -e )
+        SESSION_TABLE=1 
         ;;
     * )
         ERROR=1
@@ -171,14 +173,14 @@ else
 fi
 
 
-# Opcion -w:
-if [ $MIN_PROCESS -eq 1 ]; then
-  MIN_PROCESS=$(echo "$INFORMATION" | wc -l)
-  if [ $MIN_PROCESS -lt 6 ]; then
-    echo "Warning: The result table has less than 5 processes"
-  fi
+if [ $SESSION_TABLE -eq 1 ]; then
+  # Mostrar el resultado de la tabla de procesos
+  echo "SID PGID PID USER TTY %MEM CMD"
+  echo "$INFORMATION" 
+else
+  # Inicializacion de variables
+  SID_GROUPS=$(echo "$INFORMATION" | awk '{print $1}' | sort | wc -l)
+  SID_LEADER=$(echo "$INFORMATION" | awk '{print $1}' | sort | uniq)
 fi
 
-# Mostrar el resultado
-echo "SID PGID PID USER TTY %MEM CMD"
-echo "$INFORMATION" 
+#awk 'BEGIN {printf("PID\tUSER\n")} {printf("%d\t%s\n", $1, $2);}'

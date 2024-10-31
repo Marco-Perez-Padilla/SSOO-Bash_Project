@@ -163,19 +163,20 @@ if [ -n "$DIR" ]; then
 fi
 
 
+# Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde la tty es distinta de 0
+if [ $TERMINAL -eq 0 ]; then
+  INFORMATION=$(echo "$INFORMATION")
+else 
+  INFORMATION=$(echo "$INFORMATION" | awk '$5 != "0" && $5 != "?"')
+fi
+
+
 # Opcion -w:
 if [ $MIN_PROCESS -eq 1 ]; then
   MIN_PROCESS=$(echo "$INFORMATION" | wc -l)
   if [ $MIN_PROCESS -lt 6 ]; then
     echo "Warning: The result table has less than 5 processes"
   fi
-fi
-
-# Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde la tty es distinta de 0
-if [ $TERMINAL -eq 0 ]; then
-  INFORMATION=$(echo "$INFORMATION")
-else 
-  INFORMATION=$(echo "$INFORMATION" | awk '$5 != "0" && $5 != "?"')
 fi
 
 # Mostrar el resultado

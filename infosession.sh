@@ -27,6 +27,8 @@
 #      31/10/2024 - Modificacion: Adicion de la opcion -w
 #      31/10/2024 - Eliminación de la opcion -w
 #      31/10/2024 - Adición de opcion -e
+#      05/11/2024 - Separacion del mensaje de ayuda segun se invoca -e o no
+#      05/11/2024 - Mejora de opcion -d. Eliminacion del uso de grep
 
 # Funciones:
 
@@ -60,10 +62,10 @@ ERROR=0
 INVALID_OPTION=0
 USR_INFO=""
 TOTAL_INFO=""
-DIR=""
+DIR=()
 TEMP_PIDS=""
 TERMINAL=0
-SESSION_TABLE=0
+SESSION_TABLE=1
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
@@ -89,7 +91,7 @@ while [ -n "$1" ]; do
     -d ) 
 # Cambio al argumento. Si no hay directorio especificado, o no existe, entonces error
         shift
-        DIR="$1"
+        DIR+=("$1")
         if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
           ERROR=1
           INVALID_OPTION="-d"
@@ -99,7 +101,7 @@ while [ -n "$1" ]; do
         TERMINAL=1
         ;;
     -e )
-        SESSION_TABLE=1 
+        SESSION_TABLE=0
         ;;
     * )
         ERROR=1
@@ -113,9 +115,21 @@ done
 # Evaluacion de argumentos:
 
 # Ayuda
-if [ $HELP -eq 1 ]; then
-  echo "Usage: ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
+if [ $HELP -eq 1 ] && [ $SESSION_TABLE -eq 0 ]; then
+  echo "Usage: ./infosession.sh [-h] [-e] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
   echo "Shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
+  echo
+  echo "Any of the following options can be combined to get different results:"
+  echo
+  echo "-h: Displays this help to the user"
+  echo "-z: Shows the processes with sgid's equal to 0"
+  echo "-u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
+  echo "-d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
+  echo "-t: Shows those processes that has a terminal associated"
+  exit 0
+elif [ $HELP -eq 1 ] && [ $SESSION_TABLE -eq 1 ]; then
+  echo "Usage: ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
+  echo "Shows the session table"
   echo
   echo "Any of the following options can be combined to get different results:"
   echo
@@ -130,8 +144,8 @@ fi
 
 # Mensaje de error
 if [ $ERROR -eq 1 ]; then 
-  echo "$0: invalid option -- '$INVALID_OPTION'"
-  echo "Try $0 -h for more information."
+  echo "$0: invalid option -- '$INVALID_OPTION'" 2>&1
+  echo "Try $0 -h for more information." 2>&1
   exit 1
 fi
 
@@ -161,11 +175,15 @@ if [ -n "$DIR" ]; then
 # Guardar los pids de lsof +d en el directorio especificado en TEMP_PIDS
   TEMP_PIDS=$(lsof +d "$DIR" | awk '{print $2}')
 # Mostrar solo aquellos que se corresponden con dichos pids
-  INFORMATION=$(echo "$INFORMATION" | grep "$TEMP_PIDS")
+  for i in $TEMP_PIDS; do
+    TOTAL_INFO_PIDS+=$(echo "$INFORMATION" | awk -v pid="$i" '$3 == pid')$'\n'
+  done
+  # Mostrar solo aquellos que se corresponden con dichos pids
+  INFORMATION=$(echo "$TOTAL_INFO_PIDS")
 fi
 
 
-# Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde la tty es distinta de 0
+# Opcion -t: Si no activada, mostrar informacion. Si activada, mostrar aquellos en donde hay tty asociada
 if [ $TERMINAL -eq 0 ]; then
   INFORMATION=$(echo "$INFORMATION")
 else 
@@ -173,14 +191,49 @@ else
 fi
 
 
-if [ $SESSION_TABLE -eq 1 ]; then
+if [ $SESSION_TABLE -eq 0 ] || [ $# -eq 0 ]; then
   # Mostrar el resultado de la tabla de procesos
   echo "SID PGID PID USER TTY %MEM CMD"
   echo "$INFORMATION" 
+  exit 0
 else
+  # Impresion de cabecera
+  echo -e "SID NUMBER_OF_PROCESSES PID_LEADER USER TTY\t   CMD"
   # Inicializacion de variables
-  SID_GROUPS=$(echo "$INFORMATION" | awk '{print $1}' | sort | wc -l)
-  SID_LEADER=$(echo "$INFORMATION" | awk '{print $1}' | sort | uniq)
+  SID_TABLE=$(echo "$INFORMATION" | awk '{print $1}')
+  SID_UNIQ=$(echo "$INFORMATION" | awk '{print $1}' | sort -u)
+  # Para cada proceso unico
+  for i in $SID_UNIQ; do
+    # Inicializacion de variables
+    sid_group_count=0
+    pid_leader=""
+    pid_user="?"
+    pid_tty="?"
+    
+    # Recorremos cada proceso
+    for j in $SID_TABLE; do 
+      # Si el sid de los procesos coinciden con el sid del proceso unico
+      if [ "$i" = "$j" ]; then
+        # Contamos los grupos de procesos
+        sid_group_count=$((sid_group_count + 1))
+        # Obtenemos la linea de cada proceso, siempre y cuando el pid sea igual al sid
+        line=$(echo "$INFORMATION" | awk -v sid="$i" '$1 == sid && $1 == $3')
+        # Obtenemos el pid
+        pid=$(echo "$line" | awk '{print $3}')
+        # Obtenemos el usuario
+        pid_user=$(echo "$line" | awk '{print $4}')
+        # Obtenemos la terminal
+        tty=$(echo "$line" | awk '{print $5}')
+        # Comprobamos si hay terminal
+        pid_tty=$(echo "$tty" | awk '$5 != "0" && $5 != "?"')
+        # Obtenemos el comando
+        pid_command=$(echo "$line" | awk '{print $7}')
+        # Si no hay terminal asociada
+        if [ -z "$tty" ]; then
+          pid_tty="?"
+        fi 
+      fi
+    done
+    echo -e "$i\t\t$sid_group_count\t  $pid\t $pid_user $pid_tty $pid_command"
+  done
 fi
-
-#awk 'BEGIN {printf("PID\tUSER\n")} {printf("%d\t%s\n", $1, $2);}'

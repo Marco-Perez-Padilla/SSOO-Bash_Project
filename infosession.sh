@@ -10,7 +10,7 @@
 # Correo: alu0101469348@ull.edu.es
 # Fecha: 22/10/2024
 
-# Archivo infosession.sh: Contiene
+# Archivo infosession.sh: Contiene las especificaciones del comando ./infosession.sh
 #      
 # Referencias:
 #      Enlaces de interes
@@ -29,6 +29,10 @@
 #      31/10/2024 - Adición de opcion -e
 #      05/11/2024 - Separacion del mensaje de ayuda segun se invoca -e o no
 #      05/11/2024 - Mejora de opcion -d. Eliminacion del uso de grep
+#      05/11/2024 - Comentarios para cada varibale
+#      05/11/2024 - Adicion de la tabla de sesiones
+#      06/11/2024 - Manejo de casos en donde el pid lider no coincide con el sid
+#      06/11/2024 - Actualizacion del mensaje de ayuda
 
 # Funciones:
 
@@ -122,29 +126,21 @@ done
 # Evaluacion de argumentos:
 
 # Ayuda
-if [ $HELP -eq 1 ] && [ $SESSION_TABLE -eq 0 ]; then
-  echo "Usage: ./infosession.sh [-h] [-e] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
-  echo "Shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
+if [ $HELP -eq 1 ]; then
+  echo "Usage: ./infosession.sh [-h] [-e] [-z] [-u user1 ... ] [ -d dir ] [-t ]" 
+  echo "       ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
+  echo "If used without any option, its defualt behaviour is showing the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
   echo
-  echo "Any of the following options can be combined to get different results:"
+  echo "-e: It shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
+  echo "If -e is not used, it shows the session table, displaying the sid, number of groups it has, pid leader, user, terminal and command"
+  echo "Both can be combined with any of the folloring options:"
   echo
-  echo "-h: Displays this help to the user"
-  echo "-z: Shows the processes with sgid's equal to 0"
-  echo "-u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
-  echo "-d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
-  echo "-t: Shows those processes that has a terminal associated"
-  exit 0
-elif [ $HELP -eq 1 ] && [ $SESSION_TABLE -eq 1 ]; then
-  echo "Usage: ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
-  echo "Shows the session table"
+  echo "    -h: Displays this help to the user"
+  echo "    -z: Shows the processes with sgid's equal to 0"
+  echo "    -u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
+  echo "    -d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
+  echo "    -t: Shows those processes that has a terminal associated"
   echo
-  echo "Any of the following options can be combined to get different results:"
-  echo
-  echo "-h: Displays this help to the user"
-  echo "-z: Shows the processes with sgid's equal to 0"
-  echo "-u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
-  echo "-d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
-  echo "-t: Shows those processes that has a terminal associated"
   exit 0
 fi
 
@@ -205,7 +201,7 @@ if [ $SESSION_TABLE -eq 0 ] || [ $UNICO -eq 1 ] ; then
   exit 0
 else
   # Impresion de cabecera
-  echo -e "SID NUMBER_OF_PROCESSES PID_LEADER USER TTY\t   CMD"
+  echo -e "SID NUMBER_OF_PROCESSES PID_LEADER USER TTY\t   CMD\n"
   # Inicializacion de variables
   SID_TABLE=$(echo "$INFORMATION" | awk '{print $1}')
   SID_UNIQ=$(echo "$INFORMATION" | awk '{print $1}' | sort -u)
@@ -239,8 +235,18 @@ else
         if [ -z "$tty" ]; then
           pid_tty="?"
         fi 
+        if [ -z "$pid_user" ]; then
+          pid_user="?"
+        fi 
+        if [ -z "$pid" ]; then
+          pid="?"
+        fi 
+        if [ -z "$pid_command" ]; then
+          pid_command="?"
+        fi 
       fi
     done
-    echo -e "$i\t\t$sid_group_count\t  $pid\t $pid_user $pid_tty $pid_command"
+    echo -e "$i\t\t$sid_group_count\t  $pid $pid_user $pid_tty\t$pid_command"
   done
+  exit 0
 fi

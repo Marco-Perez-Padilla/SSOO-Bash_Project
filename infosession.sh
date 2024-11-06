@@ -54,31 +54,35 @@ CheckExternalTools() {
 CheckExternalTools
 
 # Inicialización de variables:
-INFORMATION=$(Infosession)
-HELP=0
-ZERO=0
-USR=()
-ERROR=0
-INVALID_OPTION=0
-USR_INFO=""
-TOTAL_INFO=""
-DIR=()
-TEMP_PIDS=""
-TERMINAL=0
-SESSION_TABLE=1
+INFORMATION=$(Infosession)   # Contiene la informacion pura del comando ps. Será sobreescrito según los argumentos pasados
+HELP=0                       # Se usa para señalar si el usuario ha pedido la ayuda o no
+ZERO=0                       # Se usa para señalar si el usuario quiere los procesos con sid 0 o no
+USR=()                       # Se usa para almacenar los usuarios introducidos
+ERROR=0                      # Se usa para señalar si hay un error en la ejecución o no
+INVALID_OPTION=""            # Se usa para indicar qué opción es inválida           
+USR_INFO=""                  # Se usa para filtrar por cada usuario individualmente
+TOTAL_INFO=""                # Se usa para almacenar el filtrado individual de cada usuario en un total
+DIR=()                       # Se usa para almacenar el directorio con el que usar lsof
+TEMP_PIDS=""                 # Equivalente a USR_INFO con los pids del directoria¡o
+TERMINAL=0                   # Se usa para señalar si el usuario ha pedido la terminal o no
+SESSION_TABLE=1              # Se usa para señalar si el usuario ha pedido la tabla de sesiones o no
+UNICO=1                      # Se usa para señalar si no se ha pasado ningun argumento
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
   case "$1" in
     -h )
         HELP=1
+        UNICO=0
         ;;
     -z ) 
         ZERO=1
+        UNICO=0
         ;;
 # Cambio al argumento. Mientras sigan habiendo usuarios, añadelos a USR. Si no hay ninguno, error
     -u ) 
         shift
+        UNICO=0
         while [ -n "$1" ] && [[ "$1" != -* ]]; do
           USR+=("$1")  
           shift
@@ -91,6 +95,7 @@ while [ -n "$1" ]; do
     -d ) 
 # Cambio al argumento. Si no hay directorio especificado, o no existe, entonces error
         shift
+        UNICO=0
         DIR+=("$1")
         if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
           ERROR=1
@@ -99,9 +104,11 @@ while [ -n "$1" ]; do
         ;;
     -t )
         TERMINAL=1
+        UNICO=0
         ;;
     -e )
         SESSION_TABLE=0
+        UNICO=0
         ;;
     * )
         ERROR=1
@@ -191,7 +198,7 @@ else
 fi
 
 
-if [ $SESSION_TABLE -eq 0 ] || [ $# -eq 0 ]; then
+if [ $SESSION_TABLE -eq 0 ] || [ $UNICO -eq 1 ] ; then
   # Mostrar el resultado de la tabla de procesos
   echo "SID PGID PID USER TTY %MEM CMD"
   echo "$INFORMATION" 

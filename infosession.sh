@@ -33,6 +33,12 @@
 #      05/11/2024 - Adicion de la tabla de sesiones
 #      06/11/2024 - Manejo de casos en donde el pid lider no coincide con el sid
 #      06/11/2024 - Actualizacion del mensaje de ayuda
+#      07/11/2024 - Modificacion: Adicion de la opcion -f
+#      07/11/2024 - Eliminacion de la opcion -f
+#      07/11/2024 - Adicion de control de incompatibilidades de -sg, -sm, -e
+#      08/11/2024 - Mejora tratamiento de grupos de procesos
+#      08/11/2024 - Adicion calculo total porcentaje memoria
+
 
 # Funciones:
 
@@ -70,23 +76,23 @@ DIR=()                       # Se usa para almacenar el directorio con el que us
 TEMP_PIDS=""                 # Equivalente a USR_INFO con los pids del directoria¡o
 TERMINAL=0                   # Se usa para señalar si el usuario ha pedido la terminal o no
 SESSION_TABLE=1              # Se usa para señalar si el usuario ha pedido la tabla de sesiones o no
-UNICO=1                      # Se usa para señalar si no se ha pasado ningun argumento
+SORT_OPTIONS=""              #
+SM_FLAG=0
+SG_FLAG=0
+R_FLAG=0
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
   case "$1" in
     -h )
         HELP=1
-        UNICO=0
         ;;
     -z ) 
         ZERO=1
-        UNICO=0
         ;;
 # Cambio al argumento. Mientras sigan habiendo usuarios, añadelos a USR. Si no hay ninguno, error
     -u ) 
         shift
-        UNICO=0
         while [ -n "$1" ] && [[ "$1" != -* ]]; do
           USR+=("$1")  
           shift
@@ -108,11 +114,18 @@ while [ -n "$1" ]; do
         ;;
     -t )
         TERMINAL=1
-        UNICO=0
         ;;
     -e )
         SESSION_TABLE=0
-        UNICO=0
+        ;;
+    -sm )
+        SM_FLAG=1
+        ;;
+    -sg )
+        SG_FLAG=1
+        ;;
+    -r )
+        R_FLAG=1
         ;;
     * )
         ERROR=1
@@ -122,6 +135,15 @@ while [ -n "$1" ]; do
   shift
 done
 
+if [ $SG_FLAG -eq 1 ] && [ $SM_FLAG -eq 1 ]; then
+  ERROR=1
+  INVALID_OPTION="-sm and -sg are not compatible"
+fi
+
+if [ $SG_FLAG -eq 1 ] && [ $SESSION_TABLE -eq 0 ]; then
+  ERROR=1
+  INVALID_OPTION="-sg and -e are not compatible"
+fi
 
 # Evaluacion de argumentos:
 
@@ -133,13 +155,17 @@ if [ $HELP -eq 1 ]; then
   echo
   echo "-e: It shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
   echo "If -e is not used, it shows the session table, displaying the sid, number of groups it has, pid leader, user, terminal and command"
-  echo "Both can be combined with any of the folloring options:"
+  echo "Both can be combined with any of the following options:"
   echo
   echo "    -h: Displays this help to the user"
   echo "    -z: Shows the processes with sgid's equal to 0"
   echo "    -u user1 ... : Accepts at least one user. Displays the processes that belong to the specified user/s"
   echo "    -d dir : Accepts one specified directory. Shows those processes that have active files in the given directory"
   echo "    -t: Shows those processes that has a terminal associated"
+  echo "    -r: Reverses the sort order of the output table"
+  echo "    -sm: Shows those processes that has a terminal associated"
+  echo "Exception: "
+  echo "    -sg: Shows those processes that has a terminal associated. Cannot be combined with -sm nor -e"
   echo
   exit 0
 fi
@@ -194,59 +220,67 @@ else
 fi
 
 
-if [ $SESSION_TABLE -eq 0 ] || [ $UNICO -eq 1 ] ; then
+# Opcion -e: Si activada, muestra tabla de procesos. Si no, muestra tabla de sesiones
+if [ $SESSION_TABLE -eq 0 ]; then
   # Mostrar el resultado de la tabla de procesos
   echo "SID PGID PID USER TTY %MEM CMD"
   echo "$INFORMATION" 
   exit 0
 else
   # Impresion de cabecera
-  echo -e "SID NUMBER_OF_PROCESSES PID_LEADER USER TTY\t   CMD\n"
+  FINAL_OUTPUT="  SID   NUMBER_OF_GROUPS %MEM   PID_LEADER   USER     TTY\t   CMD\n"
   # Inicializacion de variables
   SID_TABLE=$(echo "$INFORMATION" | awk '{print $1}')
   SID_UNIQ=$(echo "$INFORMATION" | awk '{print $1}' | sort -u)
   # Para cada proceso unico
   for i in $SID_UNIQ; do
     # Inicializacion de variables
-    sid_group_count=0
-    pid_leader=""
-    pid_user="?"
-    pid_tty="?"
+    SID_GROUP_COUNT=0
+    TOTAL_MEM=0
+    PID_LEADER=""
+    PID_USER="?"
+    PID_TTY="?"
     
-    # Recorremos cada proceso
-    for j in $SID_TABLE; do 
-      # Si el sid de los procesos coinciden con el sid del proceso unico
-      if [ "$i" = "$j" ]; then
-        # Contamos los grupos de procesos
-        sid_group_count=$((sid_group_count + 1))
-        # Obtenemos la linea de cada proceso, siempre y cuando el pid sea igual al sid
-        line=$(echo "$INFORMATION" | awk -v sid="$i" '$1 == sid && $1 == $3')
-        # Obtenemos el pid
-        pid=$(echo "$line" | awk '{print $3}')
-        # Obtenemos el usuario
-        pid_user=$(echo "$line" | awk '{print $4}')
-        # Obtenemos la terminal
-        tty=$(echo "$line" | awk '{print $5}')
-        # Comprobamos si hay terminal
-        pid_tty=$(echo "$tty" | awk '$5 != "0" && $5 != "?"')
-        # Obtenemos el comando
-        pid_command=$(echo "$line" | awk '{print $7}')
-        # Si no hay terminal asociada
-        if [ -z "$tty" ]; then
-          pid_tty="?"
-        fi 
-        if [ -z "$pid_user" ]; then
-          pid_user="?"
-        fi 
-        if [ -z "$pid" ]; then
-          pid="?"
-        fi 
-        if [ -z "$pid_command" ]; then
-          pid_command="?"
-        fi 
-      fi
-    done
-    echo -e "$i\t\t$sid_group_count\t  $pid $pid_user $pid_tty\t$pid_command"
+    # Obtenemos el total de grupos de procesos
+    SID_GROUP_COUNT=$(echo "$INFORMATION" | awk -v sid="$i" '$1 == sid {print $2}' | sort -u | wc -l)
+    # Obtenemos el total de memoria
+    TOTAL_MEM=$(echo "$INFORMATION" | LC_ALL=C awk -v sid="$i" '$1 == sid {sum += $6} END {print sum}')
+    # Obtenemos la linea de cada proceso, siempre y cuando el pid sea igual al sid
+    LINE=$(echo "$INFORMATION" | awk -v sid="$i" '$1 == sid && $1 == $3')
+    # Obtenemos el pid
+    PID=$(echo "$LINE" | awk '{print $3}')
+    # Obtenemos el usuario
+    PID_USER=$(echo "$LINE" | awk '{print $4}')
+    # Obtenemos la terminal
+    TTY=$(echo "$LINE" | awk '{print $5}')
+    # Comprobamos si hay terminal
+    PID_TTY=$(echo "$TTY" | awk '$5 != "0" && $5 != "?"')
+    # Obtenemos el comando
+    PID_COMMAND=$(echo "$LINE" | awk '{print $7}')
+    # Si no hay terminal asociada
+    if [ -z "$TTY" ]; then
+      PID_TTY="?"
+    fi 
+    # Si no está el proceso líder
+    if [ -z "$PID_USER" ]; then
+      PID_USER="?"
+    fi 
+    if [ -z "$PID" ]; then
+      PID="?"
+    fi 
+    if [ -z "$PID_COMMAND" ]; then
+      PID_COMMAND="?"
+    fi 
+  
+    FINAL_OUTPUT+=$(printf "%-8s%-17s%-8s%-12s%-10s%-10s%s\n" "$i" "$SID_GROUP_COUNT" "$TOTAL_MEM" "$PID" "$PID_USER" "$PID_TTY" "$PID_COMMAND")
+    FINAL_OUTPUT+="\n"
+
   done
+  echo -e "$FINAL_OUTPUT"
   exit 0
 fi
+
+# Apuntes para calcular memoria y para entrega final (ignorar por favor):
+# sort -g
+# -sg incompatible con -e y -sm
+# -sm compatible con -e

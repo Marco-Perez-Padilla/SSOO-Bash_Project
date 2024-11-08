@@ -11,9 +11,6 @@
 # Fecha: 22/10/2024
 
 # Archivo infosession.sh: Contiene las especificaciones del comando ./infosession.sh
-#      
-# Referencias:
-#      Enlaces de interes
 
 # Historial de revisiones:
 #      22/10/2024 - Primera version (creacion) del script
@@ -38,7 +35,8 @@
 #      07/11/2024 - Adicion de control de incompatibilidades de -sg, -sm, -e
 #      08/11/2024 - Mejora tratamiento de grupos de procesos
 #      08/11/2024 - Adicion calculo total porcentaje memoria
-
+#      08/11/2024 - Adicion de opciones -sg, -sm, -r
+#      08/11/2024 - Finalizacion del proyecto
 
 # Funciones:
 
@@ -149,8 +147,8 @@ fi
 
 # Ayuda
 if [ $HELP -eq 1 ]; then
-  echo "Usage: ./infosession.sh [-h] [-e] [-z] [-u user1 ... ] [ -d dir ] [-t ]" 
-  echo "       ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ]"
+  echo "Usage: ./infosession.sh [-h] [-e] [-z] [-u user1 ... ] [ -d dir ] [-t ] [-sm ] [-r ]" 
+  echo "       ./infosession.sh [-h] [-z] [-u user1 ... ] [ -d dir ] [-t ] [-sg ] [-r ]"
   echo "If used without any option, its defualt behaviour is showing the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
   echo
   echo "-e: It shows the active processes including their sid's, pgid's, pid's, user's, tty's, %mem, cmd, without including those whose sgid's are 0"
@@ -177,6 +175,36 @@ if [ $ERROR -eq 1 ]; then
   echo "Try $0 -h for more information." 2>&1
   exit 1
 fi
+
+# Opciones de ordenamiento
+
+# Si -sg, ordenar por número de grupos
+if [ $SG_FLAG -eq 1 ]; then
+  SORT_OPTIONS="sort -k2" 
+# Si -sm, entonces
+elif [ $SM_FLAG -eq 1 ]; then
+  # Si -e, ordenar por porcentaje de memoria
+  if [ $SESSION_TABLE -eq 0 ]; then
+    SORT_OPTIONS="sort -k6"
+  # Si no -e, ordenar por memoria total de cada sid
+  else
+    SORT_OPTIONS="sort -k3"  
+  fi
+# Si ninguno, ordenamiento por usuarios
+else
+  # Si -e, usuarios es la columna 4
+  if [ $SESSION_TABLE -eq 0 ]; then
+    SORT_OPTIONS="sort -k4"  
+  # Si no -e, usuarios es la columna 4
+  else
+    SORT_OPTIONS="sort -k5"  
+  fi
+fi
+# Si -r
+if [ $R_FLAG -eq 1 ]; then
+  SORT_OPTIONS="$SORT_OPTIONS -r"
+fi
+
 
 # Si -z, mostrar procesos con sgid 0. Si no, mostrar los que no tienen sgid 0
 if [ $ZERO -eq 1 ]; then 
@@ -224,12 +252,11 @@ fi
 if [ $SESSION_TABLE -eq 0 ]; then
   # Mostrar el resultado de la tabla de procesos
   echo "SID PGID PID USER TTY %MEM CMD"
-  echo "$INFORMATION" 
+  echo "$INFORMATION" | eval "$SORT_OPTIONS"
   exit 0
 else
-  # Impresion de cabecera
-  FINAL_OUTPUT="  SID   NUMBER_OF_GROUPS %MEM   PID_LEADER   USER     TTY\t   CMD\n"
   # Inicializacion de variables
+  FINAL_OUTPUT=""
   SID_TABLE=$(echo "$INFORMATION" | awk '{print $1}')
   SID_UNIQ=$(echo "$INFORMATION" | awk '{print $1}' | sort -u)
   # Para cada proceso unico
@@ -276,11 +303,7 @@ else
     FINAL_OUTPUT+="\n"
 
   done
-  echo -e "$FINAL_OUTPUT"
+  echo "  SID   NUMBER_OF_GROUPS %MEM   PID_LEADER   USER     TTY\t   CMD"
+  echo -e "$FINAL_OUTPUT" | eval "$SORT_OPTIONS"
   exit 0
 fi
-
-# Apuntes para calcular memoria y para entrega final (ignorar por favor):
-# sort -g
-# -sg incompatible con -e y -sm
-# -sm compatible con -e

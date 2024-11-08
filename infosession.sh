@@ -74,10 +74,10 @@ DIR=()                       # Se usa para almacenar el directorio con el que us
 TEMP_PIDS=""                 # Equivalente a USR_INFO con los pids del directoria¡o
 TERMINAL=0                   # Se usa para señalar si el usuario ha pedido la terminal o no
 SESSION_TABLE=1              # Se usa para señalar si el usuario ha pedido la tabla de sesiones o no
-SORT_OPTIONS=""              #
-SM_FLAG=0
-SG_FLAG=0
-R_FLAG=0
+SORT_OPTIONS=""              # Se usa para almacenar las opciones de ordenamiento
+SM_FLAG=0                    # 1 si -sm ha sido seleccionado
+SG_FLAG=0                    # 1 si -sg ha sido seleccionado
+R_FLAG=0                     # 1 si -r ha sido seleccionado
 
 # Procesamiento argumentos:
 while [ -n "$1" ]; do
@@ -133,6 +133,7 @@ while [ -n "$1" ]; do
   shift
 done
 
+# Control de errores de incompatibilidades 
 if [ $SG_FLAG -eq 1 ] && [ $SM_FLAG -eq 1 ]; then
   ERROR=1
   INVALID_OPTION="-sm and -sg are not compatible"
@@ -142,6 +143,7 @@ if [ $SG_FLAG -eq 1 ] && [ $SESSION_TABLE -eq 0 ]; then
   ERROR=1
   INVALID_OPTION="-sg and -e are not compatible"
 fi
+
 
 # Evaluacion de argumentos:
 
@@ -200,11 +202,14 @@ else
     SORT_OPTIONS="sort -k5"  
   fi
 fi
+
 # Si -r
 if [ $R_FLAG -eq 1 ]; then
   SORT_OPTIONS="$SORT_OPTIONS -r"
 fi
 
+
+# Procesamiento de resto de las opciones
 
 # Si -z, mostrar procesos con sgid 0. Si no, mostrar los que no tienen sgid 0
 if [ $ZERO -eq 1 ]; then 
@@ -292,17 +297,21 @@ else
     if [ -z "$PID_USER" ]; then
       PID_USER="?"
     fi 
+    # Si no está el pid
     if [ -z "$PID" ]; then
       PID="?"
     fi 
+    # Si no está el comando
     if [ -z "$PID_COMMAND" ]; then
       PID_COMMAND="?"
     fi 
   
+    # Añadir cada línea a la tabla final
     FINAL_OUTPUT+=$(printf "%-8s%-17s%-8s%-12s%-10s%-10s%s\n" "$i" "$SID_GROUP_COUNT" "$TOTAL_MEM" "$PID" "$PID_USER" "$PID_TTY" "$PID_COMMAND")
     FINAL_OUTPUT+="\n"
 
   done
+  # Mostrar el resultado de la tabla de sesiones
   echo "  SID   NUMBER_OF_GROUPS %MEM   PID_LEADER   USER     TTY\t   CMD"
   echo -e "$FINAL_OUTPUT" | eval "$SORT_OPTIONS"
   exit 0

@@ -7,6 +7,7 @@
 # Curso: 2º
 # Proyecto de BASH: : Información básica de las sesiones de los procesos
 # Autor: Marco Perez Padilla
+
 # Correo: alu0101469348@ull.edu.es
 # Fecha: 22/10/2024
 
@@ -197,11 +198,12 @@ else
   # Si -e, usuarios es la columna 4
   if [ $SESSION_TABLE -eq 0 ]; then
     SORT_OPTIONS="sort -k4"  
-  # Si no -e, usuarios es la columna 4
+  # Si no -e, usuarios es la columna 5
   else
     SORT_OPTIONS="sort -k5"  
   fi
 fi
+
 
 # Si -r
 if [ $R_FLAG -eq 1 ]; then
@@ -307,12 +309,11 @@ else
     fi 
   
     # Añadir cada línea a la tabla final
-    FINAL_OUTPUT+=$(printf "%-8s%-17s%-8s%-12s%-10s%-10s%s\n" "$i" "$SID_GROUP_COUNT" "$TOTAL_MEM" "$PID" "$PID_USER" "$PID_TTY" "$PID_COMMAND")
-    FINAL_OUTPUT+="\n"
+    FINAL_OUTPUT+=$(echo "$i        $SID_GROUP_COUNT        $TOTAL_MEM        $PID        $PID_USER    $PID_TTY    $PID_COMMAND \n")
 
   done
   # Mostrar el resultado de la tabla de sesiones
-  echo "  SID   NUMBER_OF_GROUPS %MEM   PID_LEADER   USER     TTY\t   CMD"
+  echo "SID   NUMBER_OF_GROUPS %MEM   PID_LEADER     USER      TTY\t         CMD"
   echo -e "$FINAL_OUTPUT" | eval "$SORT_OPTIONS"
   exit 0
 fi
